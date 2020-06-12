@@ -2,8 +2,6 @@ import pandas as pd
 import pandas
 import os
 import numpy as np
-import geocoder
-import json
 import gzip
 
 def getListOfFiles(dirName):
@@ -27,50 +25,35 @@ directory_sd = "/Users/kpele/Documents/SafeGraph/social-distancing/v2/2020/"
 
 files = getListOfFiles(directory_sd)
 
-# obtain data for February mobility and March mobility
+# obtain data for February mobility and April mobility
 
 for f in files[31:62]+files[95:125]:
 	print(f)
 	if '.DS_Store' in f:
 		continue
 	tmp = pd.read_csv(f,compression="gzip")
-	#tmp = x[(x['origin_census_block_group']>= 420000000000) & (x['origin_census_block_group']<= 429999999999)]
 	if f == files[31]:
-		x_pa = tmp
+		x = tmp
 	else:
-		x_pa = pd.concat([x_pa,tmp],sort=False)
+		x = pd.concat([x,tmp],sort=False)
 
-
-x = x_pa
 new = x['date_range_start'].str.split("T",n=1,expand = True)
 x['date_range_start'] = new[0]
 home_stay_pcg = pandas.DataFrame(columns = ['origin_census_block_group'], index= list(x['origin_census_block_group'].unique()))
 home_stay_pcg['origin_census_block_group'] = list(x['origin_census_block_group'].unique())
 
-#home_stay_pcg = pandas.DataFrame(columns = list(x['date_range_start'].unique()), index= list(x['origin_census_block_group'].unique())) 
-#devices_count = pandas.DataFrame(columns = list(x['date_range_start'].unique()), index= list(x['origin_census_block_group'].unique())) 
-
 # get the median percentage of time spent at home
 
 for d in list(x['date_range_start'].unique()):
-	print(d)
 	tmp = x[x['date_range_start'] == d].reset_index()
 	tmp_df = pandas.DataFrame(list(zip(list(tmp['origin_census_block_group']), list(tmp['median_percentage_time_home']))),columns=['origin_census_block_group',tmp['date_range_start'][0]])
 	#tmp2_df = pandas.DataFrame(list(zip(list(tmp['origin_census_block_group']), list(tmp['distance_traveled_from_home']))),columns=['origin_census_block_group',tmp['date_range_start'][0]])
 	home_stay_pcg = home_stay_pcg.merge(tmp_df,on="origin_census_block_group",how="inner")
-	#dist_traveled = dist_traveled.merge(tmp2_df,on="origin_census_block_group",how="inner")
-	#for b in range(len(tmp)):
-	#	home_stay_pcg.loc[tmp['origin_census_block_group'][b],d] = tmp['median_percentage_time_home'][b] 
-	#	devices_count.loc[tmp['origin_census_block_group'][b],d] = tmp['device_count'][b] 
-
-# write the files to excel
-
+	
 
 home_stay_pcg.to_csv("home_stay_tmp.csv",index=False)
 
-## find fraction of population less than 50 yo 
-
-# census variables for more than 50 (male and female)
+# census variables for age and race
 fields_more50 = ['B01001m40','B01001m41','B01001m42','B01001m43','B01001m44','B01001m45','B01001m46','B01001m47','B01001m48','B01001m49','B01001m16','B01001m17','B01001m18','B01001m19','B01001m20','B01001m21','B01001m22','B01001m23','B01001m24','B01001m25']
 field_total = ['B01001e2','B01001e26']
 fields_hispanic = 'B03002e12'
