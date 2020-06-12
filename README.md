@@ -8,4 +8,4 @@ In order to perform the granger causality analysis the following two scripts are
 
 <B>preprocess_granger.py</B>: This script processes the SafeGraph mobility and covid-19 related fatality data from NYT and provides a data frame with the average fraction of daily time spent home over each week and the total number of COVID-19 related deaths. 
 
-<B>granger_analysis.R</B>: This is an R script that reads the weekly time-series data obtained from the previous script and runs the Granger causality analysis. 
+<B>granger_analysis.Rmd</B>: This is an R markdown that reads the weekly time-series data obtained from the previous script and runs the Granger causality analysis. 
