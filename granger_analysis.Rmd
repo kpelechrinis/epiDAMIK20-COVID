@@ -1,0 +1,68 @@
+---
+title: "granger_analysis"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libs}
+library(vars)
+library(forecast)
+library(easyGgplot2)
+```
+
+## Read data
+
+```{r load, echo=FALSE}
+weekly_mobility_us <- c(70.89814, 72.26252, 73.40198, 71.06436, 69.65933, 71.66441, 62.75498, 70.72934, 82.32934, 85.52404, 91.97356, 92.27524, 91.40490,89.01117, 90.18401, 90.57795, 88.82149, 87.0400111, 85.105728)
+weekly_deaths_us <- c(0,0,0,0,0,6,20,65,48,2782,8974,14217,15372,14103,12883,11842, 9667, 7776, 6923)
+```
+
+## plot time series
+
+```{r plots}
+dates = seq(as.Date("2020/1/21"), by = "week", length.out = length(weekly_deaths_us))
+data.df = data.frame(Dates = dates, Deaths = weekly_deaths_us, Mobility = weekly_mobility_us)
+p1 <- ggplot(data.df, aes(x=Dates, y=Deaths)) + geom_line()+geom_point()+scale_x_date(date_labels = "%m-%Y")+labs(x="Date",y="Weekly Fatalities")+theme_bw(base_size=19)
+p2 <- ggplot(data.df, aes(x=Dates, y=Mobility)) + geom_line()+geom_point()+scale_x_date(date_labels = "%m-%Y")+labs(x="Date",y="Average % spend home")+theme_bw(base_size=19)
+p1
+p2
+```
+
+## check for stationarity 
+
+```{r stationarity}
+ndiffs(weekly_deaths_us,alpha=0.05,test=c("kpss"))
+ndiffs(weekly_mobility_us,alpha=0.05,test=c("kpss"))
+```
+
+One differentiation of the time series will make them stationary as required for Granger analysis
+
+```{r differentiate}
+dweekly_deaths_us = diff(weekly_deaths_us)
+dweekly_mobility_us = diff(weekly_mobility_us)
+```
+
+## run Granger causality
+## first we need to build the VAR model and then test using causality()
+
+```{r granger}
+series <- matrix(0,2,length(dweekly_deaths_us))
+series[1,] = dweekly_mobility_us
+series[2,] = dweekly_deaths_us
+
+series <- ts(t(series))
+
+lmax = 5 
+
+for (i in 1:lmax){
+
+  print(paste0("++++++++++++++++Lag: ",as.character(i),"++++++++++++++++"))
+  var.aic <- VAR(series, type = "none", lag.max = i, ic = "AIC")
+  print(summary(var.aic))
+  print(causality(var.aic))
+
+}
+```
