@@ -16,8 +16,9 @@ library(easyGgplot2)
 ## Read data
 
 ```{r load, echo=FALSE}
-weekly_mobility_us <- c(70.89814, 72.26252, 73.40198, 71.06436, 69.65933, 71.66441, 62.75498, 70.72934, 82.32934, 85.52404, 91.97356, 92.27524, 91.40490,89.01117, 90.18401, 90.57795, 88.82149, 87.0400111, 85.105728)
-weekly_deaths_us <- c(0,0,0,0,0,6,20,65,48,2782,8974,14217,15372,14103,12883,11842, 9667, 7776, 6923)
+granger_ts <- read.csv("/Users/kpele/Documents/SafeGraph/granger_ts.csv")
+weekly_mobility_us <- granger_ts$mobility
+weekly_deaths_us <- granger_ts$deaths
 ```
 
 ## plot time series
