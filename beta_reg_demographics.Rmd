@@ -14,9 +14,9 @@ library(dplyr)
 ```
 
 ```{r loadData}
-home_pcg <- read.csv("http://www.pitt.edu/~kpele/epiDAMIK_home_pcg_us.csv")
-demo_data <- read.csv("http://www.pitt.edu/~kpele/demo_data.csv")
-demo_data_race <- read.csv("http://www.pitt.edu/~kpele/demo_datarace.csv")
+home_pcg <- read.csv("/Users/kpele/Documents/SafeGraph/home_stay_us.csv")
+demo_data <- read.csv("/Users/kpele/Documents/SafeGraph/demo_data.csv")
+demo_data_race <- read.csv("/Users/kpele/Documents/SafeGraph/demo_datarace.csv")
 colnames(home_pcg)[1] = 'census_block_group'
 ```
 
