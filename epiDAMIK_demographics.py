@@ -27,7 +27,7 @@ files = getListOfFiles(directory_sd)
 
 # obtain data for February mobility and April mobility
 
-for f in files[31:62]+files[95:125]:
+for f in files[32:62]+files[95:125]:
 	print(f)
 	if '.DS_Store' in f:
 		continue
@@ -51,7 +51,7 @@ for d in list(x['date_range_start'].unique()):
 	home_stay_pcg = home_stay_pcg.merge(tmp_df,on="origin_census_block_group",how="inner")
 	
 
-home_stay_pcg.to_csv("home_stay_tmp.csv",index=False)
+home_stay_pcg.to_csv("home_stay_us.csv",index=False)
 
 # census variables for age and race
 fields_more50 = ['B01001m40','B01001m41','B01001m42','B01001m43','B01001m44','B01001m45','B01001m46','B01001m47','B01001m48','B01001m49','B01001m16','B01001m17','B01001m18','B01001m19','B01001m20','B01001m21','B01001m22','B01001m23','B01001m24','B01001m25']
