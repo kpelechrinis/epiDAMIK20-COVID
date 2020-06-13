@@ -1,0 +1,196 @@
+---
+title: "beta_reg_demographics"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libs}
+library(betareg)
+library(simstudy)
+library(dplyr)
+```
+
+```{r loadData}
+home_pcg <- read.csv("http://www.pitt.edu/~kpele/epiDAMIK_home_pcg_us.csv")
+demo_data <- read.csv("http://www.pitt.edu/~kpele/demo_data.csv")
+demo_data_race <- read.csv("http://www.pitt.edu/~kpele/demo_datarace.csv")
+colnames(home_pcg)[1] = 'census_block_group'
+```
+
+```{r preprocessData}
+shelter_index = 32
+home_census_bef <- rep(0,dim(home_pcg)[1])
+home_census_aft <- rep(0,dim(home_pcg)[1])
+
+for (i in 1:dim(home_pcg)[1]){
+        home_census_bef[i] = mean(as.numeric(home_pcg[i,c(3:shelter_index)]),na.rm=T)
+        home_census_aft[i] = mean(as.numeric(home_pcg[i,c((shelter_index+1):dim(home_pcg)[2])]),na.rm=T)
+}
+
+reg_data <- data.frame(census_block_group = home_pcg$census_block_group, pre = home_census_bef, post = home_census_aft)
+reg_data <- reg_data %>% inner_join(demo_data, by = "census_block_group")
+# remove NAs and other coding errors
+reg_data <- reg_data[which(reg_data$pcg_older_50 <= 1 & !is.na(reg_data$pre) & !is.na(reg_data$post) & !is.na(reg_data$median_income)),]
+#beta regressions requires data in (0,1)
+reg_data$pre = reg_data$pre/100
+reg_data$post = reg_data$post/100
+reg_data = reg_data[which(reg_data$pre >0 & reg_data$pre<1 & reg_data$post>0 & reg_data$post<1),]
+reg_data <- reg_data %>% inner_join(demo_data_race, by = "census_block_group")
+reg_data <- reg_data[which(!is.na(reg_data$Hispanic) & !is.na(reg_data$White) & !is.na(reg_data$Black) & !is.na(reg_data$Asian) & !is.na(reg_data$Natives.Others)),]
+```
+
+## Beta regression model with race-related covariates
+
+```{r runBetaregression-Table2}
+mod_pre<- betareg(pre~Hispanic+White+Black+Asian+Natives.Others,data=reg_data )
+mod_post <- betareg(post~Hispanic+White+Black+Asian+Natives.Others,data=reg_data )
+print("~~~~~~~~~~~~~Pre-lockdown mobility model~~~~~~~~~~~~~")
+print(coefficients(mod_pre))
+print(confint(mod_pre))
+print("~~~~~~~~~~~~~Lockdown mobility model~~~~~~~~~~~~~")
+print(coefficients(mod_post))
+print(confint(mod_post))
+```
+
+## get the shapes of the predicted beta distribution for the various hypothetical CBGs 
+
+```{r betaShapes}
+# this can be written WAY better and cleaner
+pre_shapes_hispanic = betaGetShapes(predict(mod_pre,data.frame(Hispanic=1,White=0,Black=0,Asian=0,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+pre_shapes_white = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=1,Black=0,Asian=0,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+pre_shapes_black = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=0,Black=1,Asian=0,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+pre_shapes_Asian = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=0,Black=0,Asian=1,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+pre_shapes_others = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=0,Black=0,Asian=0,Natives.Others=1)), coefficients(mod_pre)[7][[1]])
+post_shapes_hispanic = betaGetShapes(predict(mod_post,data.frame(Hispanic=1,White=0,Black=0,Asian=0,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+post_shapes_white = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=1,Black=0,Asian=0,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+post_shapes_black = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=0,Black=1,Asian=0,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+post_shapes_Asian = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=0,Black=0,Asian=1,Natives.Others=0)), coefficients(mod_pre)[7][[1]])
+post_shapes_others = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=0,Black=0,Asian=0,Natives.Others=1)), coefficients(mod_pre)[7][[1]])
+```
+
+```{r Figure 2}
+p = seq(0,1, length=100)
+## left
+plot(p, dbeta(p,pre_shapes_hispanic$shape1,pre_shapes_hispanic$shape2), type ="l", col=4,xlab="Fraction of time spent home daily (before stay-at-home orders)",ylab="Probability Density")
+lines(p, dbeta(p,pre_shapes_black$shape1,pre_shapes_black$shape2), type ="l", col=3)
+lines(p, dbeta(p,pre_shapes_Asian$shape1,pre_shapes_Asian$shape2), type ="l", col=2)
+lines(p, dbeta(p,pre_shapes_white$shape1,pre_shapes_white$shape2), type ="l", col=1)
+lines(p, dbeta(p,pre_shapes_others$shape1,pre_shapes_others$shape2), type ="l", col=5)
+legend(0.1,2.5,c("Hispanic","Black","Asian", "White","Others"),lty=c(1,1,1,1,1),col=c(4,3,2,1,5))
+## right
+plot(p, dbeta(p,post_shapes_hispanic$shape1,post_shapes_hispanic$shape2), type ="l", col=4,xlab="Fraction of time spent home daily (after stay-at-home orders)",ylab="Probability Density")
+lines(p, dbeta(p,post_shapes_black$shape1,post_shapes_black$shape2), type ="l", col=3)
+lines(p, dbeta(p,post_shapes_Asian$shape1,post_shapes_Asian$shape2), type ="l", col=2)
+lines(p, dbeta(p,post_shapes_white$shape1,post_shapes_white$shape2), type ="l", col=1)
+lines(p, dbeta(p,post_shapes_others$shape1,post_shapes_others$shape2), type ="l", col=5)
+legend(0.1,10,c("Hispanic","Black","Asian", "White","Others"),lty=c(1,1,1,1,1),col=c(4,3,2,1,5))
+```
+
+
+```{r Table4}
+# results will vary in terms of actual values due to sampling
+# resample the corresponding betas -- again the code can be written much cleaner
+pre_shapes_hispanic_samples <- rbeta(1000,pre_shapes_hispanic$shape1,pre_shapes_hispanic$shape2)
+pre_shapes_black_samples <- rbeta(1000,pre_shapes_black$shape1,pre_shapes_black$shape2)
+pre_shapes_asian_samples <- rbeta(1000,pre_shapes_Asian$shape1,pre_shapes_Asian$shape2)
+pre_shapes_white_samples <- rbeta(1000,pre_shapes_white$shape1,pre_shapes_white$shape2)
+pre_shapes_others_samples <- rbeta(1000,pre_shapes_others$shape1,pre_shapes_others$shape2)
+post_shapes_hispanic_samples <- rbeta(1000,post_shapes_hispanic$shape1,post_shapes_hispanic$shape2)
+post_shapes_black_samples <- rbeta(1000,post_shapes_black$shape1,post_shapes_black$shape2)
+post_shapes_asian_samples <- rbeta(1000,post_shapes_Asian$shape1,post_shapes_Asian$shape2)
+post_shapes_white_samples <- rbeta(1000,post_shapes_white$shape1,post_shapes_white$shape2)
+post_shapes_others_samples <- rbeta(1000,post_shapes_others$shape1,post_shapes_others$shape2)
+
+# perform t-test for the sampled differences
+print("~~~~~~~~vs-White~~~~~~~~")
+print("~~~~~~~~Black~~~~~~~~")
+print(t.test(-(pre_shapes_black_samples-pre_shapes_white_samples)+(post_shapes_black_samples-post_shapes_white_samples)))
+print("~~~~~~~~Hispanic~~~~~~~~")
+print(t.test(-(pre_shapes_hispanic_samples-pre_shapes_white_samples)+(post_shapes_hispanic_samples-post_shapes_white_samples)))
+print("~~~~~~~~Asian~~~~~~~~")
+print(t.test(-(pre_shapes_asian_samples-pre_shapes_white_samples)+(post_shapes_asian_samples-post_shapes_white_samples)))
+print("~~~~~~~~Other~~~~~~~~")
+print(t.test(-(pre_shapes_others_samples-pre_shapes_white_samples)+(post_shapes_others_samples-post_shapes_white_samples)))
+
+```
+
+
+```{r addingIncome-Table5}
+
+# controlling for income
+mod_pre<- betareg(pre~Hispanic+White+Black+Asian+Natives.Others+median_income,data=reg_data )
+mod_post <- betareg(post~Hispanic+White+Black+Asian+Natives.Others+median_income,data=reg_data )
+print("~~~~~~~~~~~~~Pre-lockdown mobility model~~~~~~~~~~~~~")
+print(coefficients(mod_pre))
+print(confint(mod_pre))
+print("~~~~~~~~~~~~~Lockdown mobility model~~~~~~~~~~~~~")
+print(coefficients(mod_post))
+print(confint(mod_post))
+```
+
+```{r Table6}
+
+mi = mean(reg_data$median_income)
+pre_shapes_hispanic = betaGetShapes(predict(mod_pre,data.frame(Hispanic=1,White=0,Black=0,Asian=0,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+pre_shapes_white = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=1,Black=0,Asian=0,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+pre_shapes_black = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=0,Black=1,Asian=0,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+pre_shapes_Asian = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=0,Black=0,Asian=1,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+pre_shapes_others = betaGetShapes(predict(mod_pre,data.frame(Hispanic=0,White=0,Black=0,Asian=0,Natives.Others=1,median_income=mi)), coefficients(mod_pre)[8][[1]])
+post_shapes_hispanic = betaGetShapes(predict(mod_post,data.frame(Hispanic=1,White=0,Black=0,Asian=0,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+post_shapes_white = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=1,Black=0,Asian=0,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+post_shapes_black = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=0,Black=1,Asian=0,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+post_shapes_Asian = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=0,Black=0,Asian=1,Natives.Others=0,median_income=mi)), coefficients(mod_pre)[8][[1]])
+post_shapes_others = betaGetShapes(predict(mod_post,data.frame(Hispanic=0,White=0,Black=0,Asian=0,Natives.Others=1,median_income=mi)), coefficients(mod_pre)[8][[1]])
+pre_shapes_hispanic_samples <- rbeta(1000,pre_shapes_hispanic$shape1,pre_shapes_hispanic$shape2)
+pre_shapes_black_samples <- rbeta(1000,pre_shapes_black$shape1,pre_shapes_black$shape2)
+pre_shapes_asian_samples <- rbeta(1000,pre_shapes_Asian$shape1,pre_shapes_Asian$shape2)
+pre_shapes_white_samples <- rbeta(1000,pre_shapes_white$shape1,pre_shapes_white$shape2)
+pre_shapes_others_samples <- rbeta(1000,pre_shapes_others$shape1,pre_shapes_others$shape2)
+post_shapes_hispanic_samples <- rbeta(1000,post_shapes_hispanic$shape1,post_shapes_hispanic$shape2)
+post_shapes_black_samples <- rbeta(1000,post_shapes_black$shape1,post_shapes_black$shape2)
+post_shapes_asian_samples <- rbeta(1000,post_shapes_Asian$shape1,post_shapes_Asian$shape2)
+post_shapes_white_samples <- rbeta(1000,post_shapes_white$shape1,post_shapes_white$shape2)
+post_shapes_others_samples <- rbeta(1000,post_shapes_others$shape1,post_shapes_others$shape2)
+
+# perform t-test for the sampled differences
+print("~~~~~~~~vs-White~~~~~~~~")
+print("~~~~~~~~Black~~~~~~~~")
+print(t.test(-(pre_shapes_black_samples-pre_shapes_white_samples)+(post_shapes_black_samples-post_shapes_white_samples)))
+print("~~~~~~~~Hispanic~~~~~~~~")
+print(t.test(-(pre_shapes_hispanic_samples-pre_shapes_white_samples)+(post_shapes_hispanic_samples-post_shapes_white_samples)))
+print("~~~~~~~~Asian~~~~~~~~")
+print(t.test(-(pre_shapes_asian_samples-pre_shapes_white_samples)+(post_shapes_asian_samples-post_shapes_white_samples)))
+print("~~~~~~~~Other~~~~~~~~")
+print(t.test(-(pre_shapes_others_samples-pre_shapes_white_samples)+(post_shapes_others_samples-post_shapes_white_samples)))
+```
+
+```{r ageModels}
+mod_pre<- betareg(pre~pcg_older_50,data=reg_data)
+mod_post <- betareg(post~pcg_older_50,data=reg_data)
+print("~~~~~~~~~~~~~Pre-lockdown mobility model~~~~~~~~~~~~~")
+print(coefficients(mod_pre))
+print(confint(mod_pre))
+print("~~~~~~~~~~~~~Lockdown mobility model~~~~~~~~~~~~~")
+print(coefficients(mod_post))
+print(confint(mod_post))
+```
+
+```{r Figure3}
+pre_shapes_younger_50 <- betaGetShapes(predict(mod_pre,data.frame(pcg_older_50 = 0)), coefficients(mod_pre)[3][[1]])
+pre_shapes_older_50 <- betaGetShapes(predict(mod_pre,data.frame(pcg_older_50 = 1)), coefficients(mod_pre)[3][[1]])
+post_shapes_younger_50 <- betaGetShapes(predict(mod_post,data.frame(pcg_older_50 = 0)), coefficients(mod_post)[3][[1]])
+post_shapes_older_50 <- betaGetShapes(predict(mod_post,data.frame(pcg_older_50 = 1)), coefficients(mod_post)[3][[1]])
+
+p = seq(0,1, length=100)
+
+plot(p, dbeta(p,pre_shapes_younger_50$shape1,pre_shapes_younger_50$shape2), type ="l", col=4,xlab="Fraction of time spent home",ylab="Probability Density")
+lines(p, dbeta(p, pre_shapes_older_50$shape1, pre_shapes_older_50$shape2), type ="l", col=3)
+lines(p, dbeta(p, post_shapes_younger_50$shape1, post_shapes_younger_50$shape2), col=2)
+lines(p, dbeta(p, post_shapes_older_50$shape1, post_shapes_older_50$shape2), col=1)
+
+legend(0.1,2.5,c("Pre-Shelter (<50)","Pre-Shelter (>50)","Post-Shelter (<50)", "Post-Shelter (>50)"),lty=c(1,1,1,1),col=c(4,3,2,1))
+```
+
