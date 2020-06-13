@@ -15,3 +15,5 @@ In order to perform the granger causality analysis the following two scripts are
 We again have two scripts; one for preprocessing the data and one for running the beta regression. 
 
 <B>preprocess_demographics.py</B>: This script processes the SafeGraph mobility data and obtains for each census block group the median percentage of time spent at home for each day in February (pre-lockdown) and April (during lockdown). It creates a an output file ```epiDAMIK_home_pcg.csv``` that has for each census block group (row), the median percentage of time spent home for each day (column). This script also obtains demographic information for each census block group (output files: ```demo_dataage.csv``` and ```demo_datarace.csv```). 
+
+<B>beta_reg_demographics.Rmd</B>: This markdown processes the output of the previous script to generate the beta regression models for the percentage of time spent home and the various demographics considered. It also generates the plots in the paper and the data/results for the tables. 
